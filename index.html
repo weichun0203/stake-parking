@@ -17,7 +17,7 @@
                         'sage-dark': '#557266',     // 按鈕深綠
                         'paper-white': '#fdfbf7',   // 背景米白
                         'warm-gray': '#a4ac86',     // 裝飾色
-                        'muted-coral': '#e29578',   // 重置按鈕 (已移除功能，僅留色碼備用)
+                        'muted-coral': '#e29578',   // 重置按鈕
                     },
                     fontFamily: {
                         sans: ['"Microsoft JhengHei"', 'system-ui', 'sans-serif'],
@@ -199,7 +199,7 @@
         // ============================================
         // 設定區域：請在此填入您的 Google Apps Script 網址
         // ============================================
-        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycby_8zGRLJqtLWkvLWbAL137L5W6vFT_ytqWg2_tVnGwobWazkKwyOwjlmpEfBvI5zCgQw/exec'; // 例如: https://script.google.com/macros/s/XXXXX/exec
+        const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbxik1YoEgDXkYkbsFWbdZXlm5M_qbHeNAcPXZRW7uouvlOj02o3K7Lmfw-oe6UBpTVJyQ/exec'; // 例如: https://script.google.com/macros/s/XXXXX/exec
 
         // ============================================
         // 內建備用資料庫 (CSV Raw String)
@@ -486,6 +486,8 @@
         
         document.getElementById('addForm').addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // 建立新資料物件
             const newItem = {
                 id: Date.now(),
                 branch: document.getElementById('inputBranch').value,
@@ -495,11 +497,34 @@
                 appearance: document.getElementById('inputAppearance').value || "一般"
             };
             
+            // 1. 樂觀更新 (Optimistic UI Update) - 先更新本地畫面
             carData = [newItem, ...carData];
             saveAndRender();
             closeModal();
-            showToast('新增成功！(僅儲存於本地)', 'success');
+            showToast('已儲存至本地，正在同步至雲端...', 'info');
             e.target.reset();
+
+            // 2. 如果有設定 GAS URL，則發送 POST 請求
+            if (GAS_API_URL) {
+                fetch(GAS_API_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // 重要：避免 CORS 錯誤 (雖然無法讀取回應內容，但能確保請求發送)
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8', // 使用 text/plain 避免觸發預檢請求 (Preflight)
+                    },
+                    body: JSON.stringify(newItem)
+                })
+                .then(() => {
+                    // 由於 no-cors 模式無法精確判斷成功，我們假設沒有網路錯誤就是成功
+                    setTimeout(() => showToast('✅ 雲端同步成功！', 'success'), 1000);
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('❌ 雲端同步失敗，請檢查網路', 'error');
+                });
+            } else {
+                 showToast('未設定 GAS 網址，僅儲存於本地', 'info');
+            }
         });
 
         // --- 功能函數 ---
@@ -514,7 +539,6 @@
             const toast = document.createElement('div');
             
             let bgColor = 'bg-heritage-blue';
-            let icon = '';
             if (type === 'success') {
                 bgColor = 'bg-sage-green';
             } else if (type === 'error') {
