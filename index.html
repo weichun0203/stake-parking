@@ -462,9 +462,9 @@
         // 處理多行聯絡資訊
         function formatContact(contactStr) {
             if (!contactStr || contactStr === "N/A") return '<span class="text-gray-400 py-0.5">未提供</span>';
-            // 將 \n 轉為 <br> 並加上連結
+            // 將 \n 轉為 <br> 並加上連結，同時移除可能存在的單引號 (for display)
             return contactStr.split(/\n|\\n/).map(num => {
-                const cleanNum = num.trim();
+                const cleanNum = num.trim().replace(/^'/, ''); // 移除開頭的單引號
                 return `<a href="tel:${cleanNum}" class="font-medium text-sage-green hover:text-sage-dark hover:underline py-0.5 block">${cleanNum}</a>`;
             }).join('');
         }
@@ -487,13 +487,18 @@
         document.getElementById('addForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
+            // 取得原始電話輸入
+            let rawContact = document.getElementById('inputContact').value.trim();
+            // 如果有輸入電話，強制加上單引號前綴，確保 Google Sheet 視為文字
+            let processedContact = rawContact ? "'" + rawContact : "N/A";
+
             // 建立新資料物件
             const newItem = {
                 id: Date.now(),
                 branch: document.getElementById('inputBranch').value,
                 name: document.getElementById('inputName').value,
                 plate: document.getElementById('inputPlate').value.toUpperCase(),
-                contact: document.getElementById('inputContact').value || "N/A",
+                contact: processedContact,
                 appearance: document.getElementById('inputAppearance').value || "一般"
             };
             
@@ -539,6 +544,7 @@
             const toast = document.createElement('div');
             
             let bgColor = 'bg-heritage-blue';
+            let icon = '';
             if (type === 'success') {
                 bgColor = 'bg-sage-green';
             } else if (type === 'error') {
